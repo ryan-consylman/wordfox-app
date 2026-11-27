@@ -326,6 +326,14 @@ export function FoxHuntScreen({
                         <Text style={styles.statusBannerText}>
                             You uncovered all 10 words on Day {progress.day_index} of 7.
                         </Text>
+                        {puzzle.phrase_source && (
+                            <Text style={styles.sourceText}>
+                                Source:{' '}
+                                <Text style={styles.sourceValue}>
+                                    {puzzle.phrase_source}
+                                </Text>
+                            </Text>
+                        )}
                     </View>
                 )}
 
@@ -337,6 +345,14 @@ export function FoxHuntScreen({
                         <Text style={styles.statusBannerText}>
                             All 7 days were used on this phrase. Check the solved words below.
                         </Text>
+                        {puzzle.phrase_source && (
+                            <Text style={styles.sourceText}>
+                                Source:{' '}
+                                <Text style={styles.sourceValue}>
+                                    {puzzle.phrase_source}
+                                </Text>
+                            </Text>
+                        )}
                     </View>
                 )}
 
@@ -723,6 +739,16 @@ const styles = StyleSheet.create({
     statusBannerText: {
         fontSize: 13,
         color: '#3F3F46',
+    },
+    sourceText: {
+        marginTop: 4,
+        fontSize: 13,
+        color: '#3F3F46',
+    },
+    sourceValue: {
+        fontWeight: '700',
+        fontStyle: 'italic',
+        color: '#111111',
     },
     errorBanner: {
         backgroundColor: '#FEF2F2',

@@ -46,6 +46,7 @@ export interface FoxHuntStateResponse {
         share_code: string;
         title: string;
         theme_hint: string | null;
+        phrase_source?: string | null;
         starts_on: string | null;
         ends_on: string | null;
         is_current_week: boolean;
