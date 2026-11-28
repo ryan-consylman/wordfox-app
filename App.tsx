@@ -258,7 +258,7 @@ export default function App() {
             });
 
             try {
-                await completeWordSearch(shareCode, Math.round(elapsedSeconds * 1000));
+                await completeWordSearch(shareCode, Math.max(100, Math.round(elapsedSeconds * 1000)));
                 await refreshStats();
             } catch {
                 // Keep optimistic stats if offline
@@ -298,6 +298,7 @@ export default function App() {
 
             {view === 'word-search' && wordSearchData ? (
                 <WordSearchScreen
+                    key={wordSearchData.puzzle.share_code}
                     initialPuzzle={wordSearchData.puzzle}
                     categories={wordSearchData.categories}
                     userUnlocks={unlocks}

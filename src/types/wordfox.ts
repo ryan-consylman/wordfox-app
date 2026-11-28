@@ -32,6 +32,9 @@ export interface WordSearchPuzzle {
     words: string[];
     seed: string;
     scramble_interval_seconds: number;
+    completed?: boolean;
+    completed_time_ms?: number | null;
+    completed_at?: string | null;
 }
 
 export interface FoxHuntSlot {

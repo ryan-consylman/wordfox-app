@@ -88,10 +88,29 @@ export function WordSearchScreen({
     const [board, setBoard] = useState<WordSearchBoard>(() =>
         generateWordSearchBoard(initialPuzzle.words, `${initialPuzzle.seed}:0`, 10)
     );
-    const [foundWords, setFoundWords] = useState<string[]>([]);
-    const [foundCellKeys, setFoundCellKeys] = useState<Set<string>>(() => new Set());
+
+    const [foundWords, setFoundWords] = useState<string[]>(() =>
+        initialPuzzle.completed ? [...initialPuzzle.words] : []
+    );
+    const [foundCellKeys, setFoundCellKeys] = useState<Set<string>>(() => {
+        if (!initialPuzzle.completed) return new Set();
+        const initialBoard = generateWordSearchBoard(
+            initialPuzzle.words,
+            `${initialPuzzle.seed}:0`,
+            10
+        );
+        const keys = new Set<string>();
+        initialBoard.placements.forEach((p) => {
+            p.cells.forEach((c) => keys.add(cellKey(c.row, c.col)));
+        });
+        return keys;
+    });
     const [hintCellKeys, setHintCellKeys] = useState<Set<string>>(() => new Set());
-    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const [elapsedSeconds, setElapsedSeconds] = useState(() =>
+        initialPuzzle.completed && initialPuzzle.completed_time_ms
+            ? Math.max(1, Math.round(initialPuzzle.completed_time_ms / 1000))
+            : 0
+    );
     const [scrambleCountdown, setScrambleCountdown] = useState(
         initialPuzzle.scramble_interval_seconds || 30
     );
@@ -105,39 +124,79 @@ export function WordSearchScreen({
     const [dragStart, setDragStart] = useState<{ row: number; col: number } | null>(null);
     const [dragEnd, setDragEnd] = useState<{ row: number; col: number } | null>(null);
     const [tapAnchor, setTapAnchor] = useState<{ row: number; col: number } | null>(null);
-    const [statusMessage, setStatusMessage] = useState(
-        'Swipe across letters or tap start and end tiles.'
+    const [statusMessage, setStatusMessage] = useState(() =>
+        initialPuzzle.completed
+            ? 'Puzzle solved! Replay anytime or share this board.'
+            : 'Swipe across letters or tap start and end tiles.'
     );
-    const [recordedWin, setRecordedWin] = useState(false);
+    const [recordedWin, setRecordedWin] = useState(() => Boolean(initialPuzzle.completed));
 
     const isComplete =
         puzzle.words.length > 0 && foundWords.length === puzzle.words.length;
 
-    const loadPuzzleIntoBoard = useCallback((nextPuzzle: WordSearchPuzzle) => {
-        setPuzzle(nextPuzzle);
-        setScrambleCount(0);
-        setBoard(generateWordSearchBoard(nextPuzzle.words, `${nextPuzzle.seed}:0`, 10));
-        setFoundWords([]);
-        setFoundCellKeys(new Set());
-        setHintCellKeys(new Set());
-        setElapsedSeconds(0);
-        setScrambleCountdown(nextPuzzle.scramble_interval_seconds || 30);
-        setMysteryPeeks({});
-        setDragStart(null);
-        setDragEnd(null);
-        setTapAnchor(null);
-        setRecordedWin(false);
-        setShowBuilder(false);
-        setBuilderError(null);
+    const remainingWords = useMemo(
+        () =>
+            puzzle.words
+                .filter((w) => !foundWords.includes(w))
+                .sort((a, b) => a.localeCompare(b)),
+        [puzzle.words, foundWords]
+    );
 
-        if (nextPuzzle.variant === 'scrambler') {
-            setStatusMessage('Letters scramble into a fresh board on the countdown.');
-        } else if (nextPuzzle.variant === 'mystery') {
-            setStatusMessage('Touch or sweep across tiles to peek before they fade.');
-        } else {
-            setStatusMessage('Swipe across letters or tap start and end tiles.');
-        }
-    }, []);
+    const solvedWords = useMemo(
+        () =>
+            puzzle.words
+                .filter((w) => foundWords.includes(w))
+                .sort((a, b) => a.localeCompare(b)),
+        [puzzle.words, foundWords]
+    );
+
+    const loadPuzzleIntoBoard = useCallback(
+        (nextPuzzle: WordSearchPuzzle, forceReset = false) => {
+            const alreadySolved = !forceReset && Boolean(nextPuzzle.completed);
+            const nextBoard = generateWordSearchBoard(
+                nextPuzzle.words,
+                `${nextPuzzle.seed}:0`,
+                10
+            );
+            const nextFoundKeys = new Set<string>();
+            if (alreadySolved) {
+                nextBoard.placements.forEach((p) => {
+                    p.cells.forEach((c) => nextFoundKeys.add(cellKey(c.row, c.col)));
+                });
+            }
+
+            setPuzzle(nextPuzzle);
+            setScrambleCount(0);
+            setBoard(nextBoard);
+            setFoundWords(alreadySolved ? [...nextPuzzle.words] : []);
+            setFoundCellKeys(nextFoundKeys);
+            setHintCellKeys(new Set());
+            setElapsedSeconds(
+                alreadySolved && nextPuzzle.completed_time_ms
+                    ? Math.max(1, Math.round(nextPuzzle.completed_time_ms / 1000))
+                    : 0
+            );
+            setScrambleCountdown(nextPuzzle.scramble_interval_seconds || 30);
+            setMysteryPeeks({});
+            setDragStart(null);
+            setDragEnd(null);
+            setTapAnchor(null);
+            setRecordedWin(alreadySolved);
+            setShowBuilder(false);
+            setBuilderError(null);
+
+            if (alreadySolved) {
+                setStatusMessage('Puzzle solved! Replay anytime or share this board.');
+            } else if (nextPuzzle.variant === 'scrambler') {
+                setStatusMessage('Letters scramble into a fresh board on the countdown.');
+            } else if (nextPuzzle.variant === 'mystery') {
+                setStatusMessage('Touch or sweep across tiles to peek before they fade.');
+            } else {
+                setStatusMessage('Swipe across letters or tap start and end tiles.');
+            }
+        },
+        []
+    );
 
     useEffect(() => {
         if (isComplete) return;
@@ -700,7 +759,7 @@ export function WordSearchScreen({
                                 <Text style={styles.primaryBtnText}>Share Result</Text>
                             </Pressable>
                             <Pressable
-                                onPress={() => loadPuzzleIntoBoard(puzzle)}
+                                onPress={() => loadPuzzleIntoBoard(puzzle, true)}
                                 style={styles.primaryBtn}
                             >
                                 <Text style={styles.primaryBtnText}>Replay</Text>
@@ -790,7 +849,7 @@ export function WordSearchScreen({
                         <Text style={styles.outlineChipText}>Hint</Text>
                     </Pressable>
                     <Pressable
-                        onPress={() => loadPuzzleIntoBoard(puzzle)}
+                        onPress={() => loadPuzzleIntoBoard(puzzle, true)}
                         style={styles.outlineChip}
                     >
                         <RotateCcw size={14} color="#111111" />
@@ -807,22 +866,42 @@ export function WordSearchScreen({
                         {foundWords.length}/{puzzle.words.length} Found
                     </Text>
                 </View>
-                <View style={styles.wordGrid}>
-                    {puzzle.words.map((word) => {
-                        const solved = foundWords.includes(word);
-                        return (
-                            <View
-                                key={word}
-                                style={[styles.wordPill, solved && styles.wordPillSolved]}
-                            >
-                                <Text style={[styles.wordText, solved && styles.wordTextSolved]}>
-                                    {word}
-                                </Text>
-                                {solved && <Check size={14} color="#FF5A1F" />}
+
+                {remainingWords.length > 0 && (
+                    <View style={styles.wordGrid}>
+                        {remainingWords.map((word) => (
+                            <View key={word} style={styles.wordPill}>
+                                <Text style={styles.wordText}>{word}</Text>
                             </View>
-                        );
-                    })}
-                </View>
+                        ))}
+                    </View>
+                )}
+
+                {solvedWords.length > 0 && (
+                    <>
+                        {remainingWords.length > 0 && (
+                            <>
+                                <View style={styles.divider} />
+                                <Text style={styles.solvedLabel}>
+                                    SOLVED ({solvedWords.length})
+                                </Text>
+                            </>
+                        )}
+                        <View style={styles.wordGrid}>
+                            {solvedWords.map((word) => (
+                                <View
+                                    key={word}
+                                    style={[styles.wordPill, styles.wordPillSolved]}
+                                >
+                                    <Text style={[styles.wordText, styles.wordTextSolved]}>
+                                        {word}
+                                    </Text>
+                                    <Check size={14} color="#FF5A1F" />
+                                </View>
+                            ))}
+                        </View>
+                    </>
+                )}
             </View>
         </ScrollView>
     );
@@ -1013,6 +1092,12 @@ const styles = StyleSheet.create({
         borderColor: '#E4E4E7',
         alignItems: 'center',
         gap: 10,
+    },
+    solvedLabel: {
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 0.6,
+        color: '#71717A',
     },
     wordGrid: {
         flexDirection: 'row',
